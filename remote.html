@@ -1,0 +1,64 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Inaugurate</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; font-family: "Segoe UI", system-ui, sans-serif; color: #e8ecf2; background: linear-gradient(170deg, #020408 0%, #060a14 40%, #0a0e1a 70%, #030610 100%); }
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 24px; -webkit-user-select: none; user-select: none; position: relative; min-height: 100%; }
+
+    .badge { display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(100,160,220,.3); border-radius: 999px; padding: 8px 20px; font: 600 12px/1 sans-serif; letter-spacing: 3px; text-transform: uppercase; color: #7eb8e0; margin-bottom: 22px; }
+    .badge::before { content: "\1F4E1"; font-size: 14px; }
+
+    .title { text-align: center; margin-bottom: 8px; font-size: 32px; font-weight: 800; background: linear-gradient(135deg, #ffffff 0%, #a8d8ff 40%, #4da8ff 65%, #2b7de9 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+    .subtitle { font-size: 14px; color: #6a7a90; text-align: center; line-height: 1.5; margin-bottom: 36px; }
+
+    @keyframes breathe { 0%,100% { box-shadow: 0 0 50px rgba(120,190,255,.3), 0 0 100px rgba(100,180,255,.15), 0 20px 50px rgba(0,0,0,.4); } 50% { box-shadow: 0 0 80px rgba(120,190,255,.4), 0 0 140px rgba(100,180,255,.2), 0 20px 50px rgba(0,0,0,.4); } }
+    @keyframes shimmer { 0% { transform: translateX(-100%) rotate(25deg); } 100% { transform: translateX(100%) rotate(25deg); } }
+    @keyframes ring { 0% { transform: scale(1); opacity: .4; } 100% { transform: scale(1.7); opacity: 0; } }
+
+    .btn-wrap { position: relative; display: grid; place-items: center; margin-bottom: 32px; }
+    .btn-wrap::before, .btn-wrap::after { content: ""; position: absolute; width: min(280px, 75vw); height: min(280px, 75vw); border-radius: 50%; border: 1.5px solid rgba(130,200,255,.18); animation: ring 3s ease-out infinite; pointer-events: none; }
+    .btn-wrap::after { animation-delay: 1.5s; }
+
+    #playBtn { width: min(280px, 75vw); height: min(280px, 75vw); border-radius: 50%; border: 1px solid rgba(170,215,255,.25); background: radial-gradient(circle at 35% 30%, rgba(200,230,255,.4), rgba(120,190,255,.3) 40%, rgba(80,160,240,.35) 70%, rgba(50,130,220,.45)); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #fff; font: 800 22px/1 sans-serif; letter-spacing: 5px; text-transform: uppercase; cursor: pointer; display: grid; place-items: center; text-shadow: 0 1px 12px rgba(120,190,255,.5), 0 0 30px rgba(100,180,255,.25); transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .3s; animation: breathe 4s ease-in-out infinite; position: relative; z-index: 1; overflow: hidden; }
+    #playBtn::before { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.08) 45%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.08) 55%, transparent 60%); animation: shimmer 4s ease-in-out infinite; pointer-events: none; }
+    #playBtn::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; border-top: 1px solid rgba(255,255,255,.2); border-left: 1px solid rgba(255,255,255,.1); border-bottom: 1px solid transparent; border-right: 1px solid transparent; pointer-events: none; }
+    #playBtn:active { transform: scale(.88); box-shadow: 0 0 40px rgba(120,190,255,.2), 0 4px 16px rgba(0,0,0,.3); animation: none; }
+
+    #status { font: 600 12px/1 sans-serif; letter-spacing: 2px; text-transform: uppercase; color: #4a6078; text-align: center; min-height: 20px; }
+    #status.ok { color: #6fd6a4; }
+    #status.warn { color: #ff7b72; }
+
+    .footer { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; font: 600 11px/1 sans-serif; letter-spacing: 2px; text-transform: uppercase; color: #2e3d52; }
+  </style>
+</head>
+<body>
+  <div class="badge">Remote Control</div>
+  <div class="title">Amrut Spandan 2K26</div>
+  <div class="subtitle">Tap the button below to inaugurate the event<br>on the big screen</div>
+  <div class="btn-wrap"><button id="playBtn">Inaugurate</button></div>
+  <div id="status">Waiting for your tap...</div>
+  <div class="footer">Dept. of AI &amp; Data Science</div>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script>
+    var BROKER = "wss://broker.hivemq.com:8884/mqtt";
+    var TOPIC = "spandan/inauguration/ctrl";
+    var playBtn = document.getElementById("playBtn");
+    var statusEl = document.getElementById("status");
+    function setStatus(t, cls) { statusEl.textContent = t; statusEl.className = cls || ""; }
+    var client = mqtt.connect(BROKER, { clean: true, reconnectPeriod: 2000, clientId: "remote_" + Math.random().toString(16).slice(2, 10) });
+    client.on("connect", function () { setStatus("Connected. Ready!", "ok"); });
+    client.on("reconnect", function () { setStatus("Reconnecting...", "warn"); });
+    client.on("error", function () { setStatus("Connection error", "warn"); });
+    function send(cmd) {
+      if (!client || !client.connected) { setStatus("Not connected yet", "warn"); return; }
+      client.publish(TOPIC, JSON.stringify({ cmd: cmd, at: Date.now() }), { qos: 1 }, function () { setStatus("Sent: " + cmd, "ok"); });
+    }
+    playBtn.addEventListener("click", function () { send("play"); });
+  </script>
+</body>
+</html>

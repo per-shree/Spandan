@@ -1,0 +1,86 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inauguration Display</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; }
+    #wrapper { width: 100vw; height: 100vh; display: grid; place-items: center; background: #000; }
+    video, img { width: 100vw; height: 100vh; object-fit: cover; position: absolute; top: 0; left: 0; }
+    .hidden { display: none; }
+    #bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.75); color: #9ab; font: 13px/1.6 sans-serif; text-align: center; padding: 4px 12px; z-index: 10; transition: opacity .6s; }
+    #bar.ok { color: #6fd6a4; }
+    #bar.gone { opacity: 0; pointer-events: none; }
+    #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: grid; place-items: center; z-index: 20; cursor: pointer; }
+    #overlay span { color: #fff; font: 600 32px sans-serif; text-align: center; padding: 16px; }
+    #overlay.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="wrapper">
+    <video id="video" playsinline preload="auto"></video>
+    <img id="img" class="hidden" src="2.jpg.jpeg" alt="" />
+  </div>
+  <div id="overlay"><span>Click anywhere to start</span></div>
+  <div id="bar">Connecting...</div>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script>
+    var VIDEO_URL = "https://res.cloudinary.com/dzazecta2/video/upload/v1775117076/Spandan_m5j1ce.mp4";
+    var BROKER = "wss://broker.hivemq.com:8884/mqtt";
+    var TOPIC = "spandan/inauguration/ctrl";
+    var video = document.getElementById("video");
+    var img = document.getElementById("img");
+    var bar = document.getElementById("bar");
+    video.src = VIDEO_URL;
+    function status(t, ok) { bar.textContent = t; bar.className = ok ? "ok" : ""; }
+    function hideBar() { bar.classList.add("gone"); }
+    async function playVideo() {
+      img.classList.add("hidden");
+      video.classList.remove("hidden");
+      video.currentTime = 0;
+      try { await video.play(); } catch(e) { status("Tap screen once to allow audio, then retry from remote"); }
+    }
+    var played = false;
+    video.addEventListener("ended", function () {
+      played = true;
+      video.classList.add("hidden");
+      img.classList.remove("hidden");
+      hideBar();
+    });
+    function stopAll() {
+      if (played) return;
+      video.pause(); video.currentTime = 0;
+      video.classList.remove("hidden");
+      img.classList.add("hidden");
+    }
+    var overlay = document.getElementById("overlay");
+    document.addEventListener("click", function arm() {
+      document.removeEventListener("click", arm);
+      overlay.classList.add("hidden");
+      goFS();
+      video.muted = true;
+      video.play().then(function() { video.pause(); video.currentTime = 0; video.muted = false; status("Armed. Waiting for remote.", true); setTimeout(hideBar, 3000); }).catch(function(){});
+    });
+    function goFS() {
+      var el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }
+    document.addEventListener("dblclick", goFS);
+    document.addEventListener("fullscreenchange", function () { if (!document.fullscreenElement) goFS(); });
+    var client = mqtt.connect(BROKER, { clean: true, reconnectPeriod: 2000, clientId: "player_" + Math.random().toString(16).slice(2, 10) });
+    client.on("connect", function () {
+      client.subscribe(TOPIC, function (err) { if (!err) { status("Ready. Waiting for remote.", true); setTimeout(hideBar, 3000); } });
+    });
+    client.on("message", function (t, p) {
+      if (t !== TOPIC) return;
+      try { var d = JSON.parse(p.toString()); } catch(e) { return; }
+      if (d.cmd === "play") { goFS(); playVideo(); }
+      if (d.cmd === "stop") { stopAll(); status("Stopped"); }
+    });
+    client.on("reconnect", function () { status("Reconnecting..."); });
+  </script>
+</body>
+</html>
